@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<project name="Build Nant setup" default="build">
+	<property name="OutDir" value="out" />
+	<property name="SrcDir" value="src" />
+	<property name="TmpDir" value="tmp" />
+	
+	<property name="InnoDir" value="C:\Program Files (x86)\Inno Setup 5\" />
+	<property name="InnoExe" value="iscc.exe" />
+	
+	<property name="WixDir" value="C:\Program Files (x86)\WiX Toolset v3.7\bin" />
+	<property name="WixHeatExe" value="heat.exe" />
+	
+	<property name="NantLatestFile" value="nant-bin.tar.gz" />
+	<property name="NantLatestUrl" value="http://nant.sourceforge.net/nightly/latest/${NantLatestFile}" />
+	
+	<property name="ContribLatestFile" value="nantcontrib-bin.zip" />
+	<property name="ContribLatestUrl" value="http://nantcontrib.sourceforge.net/nightly/latest/${ContribLatestFile}" />
+	
+	<target name="test">
+		<call target="build.msi" />
+	</target>
+	
+	<target name="build">
+		<call target="clean" />
+		
+		<call target="src.download" />
+		<call target="src.extract" />
+
+		<call target="contrib.download" />
+		<call target="contrib.extract" />
+		
+		<call target="build.exe" />
+	
+		<call target="clean" />
+    </target>
+	
+	<target name="src.download">
+		<get src="${NantLatestUrl}" dest="${OutDir}\${NantLatestFile}" />
+	</target>
+	
+	<target name="src.extract">
+		<untar src="${OutDir}\${NantLatestFile}" dest="${TmpDir}" compression="gzip" />
+
+		<!-- move all files under first directory in TmpDir into SrcDir -->
+		<foreach item="Folder" in="${TmpDir}\" property="folderpath">
+			<move todir="${SrcDir}">
+				<fileset basedir="${folderpath}" />
+			</move>
+		</foreach>
+		<delete dir="${TmpDir}" />
+	</target>
+
+	<target name="contrib.download">
+		<get src="${ContribLatestUrl}" dest="${OutDir}\${ContribLatestFile}" />
+	</target>
+	
+	<target name="contrib.extract">
+		<unzip zipfile="${OutDir}\${ContribLatestFile}" todir="${TmpDir}" />
+		
+		<foreach item="Folder" in="${TmpDir}\" property="folderpath">
+			<move todir="${SrcDir}\bin\extensions\common\neutral\NAntContrib">
+				<fileset basedir="${folderpath}\bin">
+					<include name="NAnt.Contrib.Tasks.dll" />
+					<include name="NAnt.Contrib.Tasks.xml" />
+				</fileset>
+			</move>
+			<move todir="${SrcDir}\bin\lib\common\neutral\NAntContrib">
+				<fileset basedir="${folderpath}\bin" />
+			</move>
+		</foreach>
+		<delete dir="${TmpDir}" />
+	</target>
+
+	<target name="src.check">
+		<if test="${not file::exists(path::combine(SrcDir,'README.txt'))}">
+			<fail message="${SrcDir} doesn't contain necessary files." />
+		</if>
+	</target>
+	
+	<target name="build.exe" depends="src.check">
+		<if test="${not file::exists(path::combine(InnoDir,InnoExe))}">
+			<fail message="Inno Setup not installed. Please install from http://www.jrsoftware.org/download.php/is.exe" />
+		</if>
+		<exec program="${InnoExe}" basedir="${InnoDir}">
+			<arg value="/o${OutDir}" />
+			<arg value="latest.iss" />
+		</exec>
+	</target>
+	
+	<target name="build.msi" depends="src.check">
+		<fail message="Target still in development." />
+		<if test="${not file::exists(path::combine(WixDir,WixHeatExe))}">
+			<fail message="Wix Framework not installed. Please install from http://wixtoolset.org/" />
+		</if>		
+		<exec program="${WixHeatExe}" basedir="${WixDir}">
+			<arg line='dir ".\src" -gg -sfrag -template:fragment -out directory.wxs' />
+		</exec>
+	</target>
+	
+	<target name="clean">
+		<delete dir="${SrcDir}" />
+		<delete dir="${TmpDir}" />
+	</target>
+</project>
